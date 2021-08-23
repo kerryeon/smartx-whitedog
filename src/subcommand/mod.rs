@@ -1,6 +1,6 @@
 pub mod zeus;
 
-#[derive(Clap)]
+#[derive(Clone, Debug, Serialize, Deserialize, Clap)]
 #[clap(about = "A command which to do.")]
 pub enum SubCommand {
     #[clap(subcommand)]

@@ -1,9 +1,10 @@
 use anyhow::Result;
 use reqwest::RequestBuilder;
+use serde::Serialize;
 
 mod apc_dir_purc_aply_e;
 
-#[derive(Clap)]
+#[derive(Clone, Debug, Serialize, Deserialize, Clap)]
 #[clap(about = "GIST ZEUS System")]
 pub enum SubCommandZeus {
     #[clap(subcommand)]
@@ -79,13 +80,25 @@ impl ZeusClient {
         }
     }
 
-    pub fn attach_payload(
-        builder: RequestBuilder,
-        payload: serde_json::Value,
-    ) -> Result<RequestBuilder> {
+    pub(crate) async fn get<D>(&self, resource_uri: &str, data: D) -> Result<()>
+    where
+        D: Serialize,
+    {
+        let url = format!("{}{}", Self::origin(), resource_uri);
+        let builder = Self::attach_payload(self.client.get(url), data)?;
+
+        let response = builder.send().await?;
+        dbg!(response.text().await?);
+        todo!()
+    }
+
+    fn attach_payload<P>(builder: RequestBuilder, payload: P) -> Result<RequestBuilder>
+    where
+        P: Serialize,
+    {
         const SEP: &str = "\u{001e}";
 
-        match payload {
+        match serde_json::to_value(payload)? {
             serde_json::Value::Object(e) => {
                 let payload = e
                     .into_iter()
@@ -99,11 +112,13 @@ impl ZeusClient {
         }
     }
 
-    pub const fn host() -> &'static str {
+    const fn host() -> &'static str {
         "zeus.gist.ac.kr"
     }
 
-    pub const fn origin() -> &'static str {
+    const fn origin() -> &'static str {
         "https://zeus.gist.ac.kr"
     }
 }
+
+struct Payload(String);

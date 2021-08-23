@@ -2,7 +2,7 @@ use anyhow::Result;
 
 use super::ZeusClient;
 
-#[derive(Clap)]
+#[derive(Clone, Debug, Serialize, Deserialize, Clap)]
 #[clap(about = "구매 - (신)직접구매신청")]
 pub enum SubCommandZeusApcDirPurcAplyE {
     Get(SubCommandZeusApcDirPurcAplyEGet),
@@ -16,12 +16,16 @@ impl SubCommandZeusApcDirPurcAplyE {
     }
 }
 
-#[derive(Clap)]
+#[derive(Clone, Debug, Serialize, Deserialize, Clap)]
 #[clap(about = "구매 - (신)직접구매신청 - 조회")]
-pub struct SubCommandZeusApcDirPurcAplyEGet {}
+pub struct SubCommandZeusApcDirPurcAplyEGet {
+    pg_key: Option<String>,
+    page_open_time: Option<String>,
+}
 
 impl SubCommandZeusApcDirPurcAplyEGet {
     pub async fn exec(&self, client: &ZeusClient) -> Result<()> {
+        client.get("/sys/main/role.do", self).await?;
         todo!()
     }
 }

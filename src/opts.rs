@@ -1,4 +1,4 @@
-#[derive(Clap)]
+#[derive(Clone, Debug, Serialize, Deserialize, Clap)]
 #[clap(
     version = crate_version!(),
     author = crate_authors!(),
