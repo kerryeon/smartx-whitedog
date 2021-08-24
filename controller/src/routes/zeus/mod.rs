@@ -3,18 +3,26 @@ use std::str::Split;
 use anyhow::Result;
 use reqwest::RequestBuilder;
 use serde::{de::DeserializeOwned, Serialize};
+use ya_gist_core::models::zeus::role::User;
 
 pub mod role;
 
 mod apc_dir_purc_aply_e;
 
+pub fn mount(builder: rocket::Rocket<rocket::Build>) -> rocket::Rocket<rocket::Build> {
+    let builder = self::apc_dir_purc_aply_e::mount(builder);
+    builder
+}
+
 pub struct ZeusClient {
     client: reqwest::Client,
     wmonid: Option<String>,
-    user: Option<self::role::User>,
+    user: Option<User>,
 }
 
 impl ZeusClient {
+    pub const DATETIME_FORMAT: &'static str = "%Y%m%d";
+
     fn try_default() -> Result<Self> {
         Ok(Self {
             client: reqwest::Client::builder().cookie_store(true).build()?,
@@ -27,11 +35,11 @@ impl ZeusClient {
     pub async fn infer() -> Result<Self> {
         let mut client = Self::try_default()?;
         client.login().await?;
-        client.user.replace(self::role::User::get(&client).await?);
+        client.user.replace(client.get_user().await?);
         Ok(client)
     }
 
-    pub(crate) fn user(&self) -> &self::role::User {
+    pub(crate) fn user(&self) -> &User {
         self.user.as_ref().unwrap()
     }
 

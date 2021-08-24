@@ -1,41 +1,48 @@
-use anyhow::Result;
 use chrono::{Duration, Utc};
+use rocket::{serde::json::Json, State};
+use ya_gist_core::models::{status::Status, zeus::apc_dir_purc_aply_e as model};
 
-use super::ZeusClient;
+use crate::api::*;
+use crate::status::ToResponse;
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct GetRequest {
-    /// 시작일자
-    pub aply_fr_dt: Option<String>,
-    /// 종료일자
-    pub aply_to_dt: Option<String>,
+pub fn mount(builder: rocket::Rocket<rocket::Build>) -> rocket::Rocket<rocket::Build> {
+    builder.mount("/zeus/apc/", routes![get])
 }
 
-impl GetRequest {
-    const DATETIME_FORMAT: &'static str = "%Y%m%d";
+#[get("/?<request..>")]
+async fn get(
+    client: &State<super::ZeusClient>,
+    request: model::get::Request,
+) -> Json<Status<model::get::Response>> {
+    request.get(client).await.to_response()
+}
 
-    pub async fn exec(&self, client: &ZeusClient) -> Result<()> {
+#[async_trait]
+impl GetRequest for model::get::Request {
+    type Client = super::ZeusClient;
+
+    type Response = model::get::Response;
+
+    async fn get(&self, client: &Self::Client) -> anyhow::Result<Self::Response> {
         let now = Utc::now();
 
         let mbr_no = &client.user().mbr_no;
         let aply_fr_dt = self.aply_to_dt.as_ref().cloned().unwrap_or_else(|| {
             (now - Duration::weeks(4))
-                .format(Self::DATETIME_FORMAT)
+                .format(Self::Client::DATETIME_FORMAT)
                 .to_string()
         });
         let aply_to_dt = self
             .aply_to_dt
             .as_ref()
             .cloned()
-            .unwrap_or_else(|| now.format(Self::DATETIME_FORMAT).to_string());
+            .unwrap_or_else(|| now.format(Self::Client::DATETIME_FORMAT).to_string());
 
         let response: Vec<serde_json::Value> = client
             .get(
                 "/apc/apcDirPurcAplyE/selectMain.do",
                 Some("PERS01^PERS01_15^002^ApcDirPurcAplyE"),
                 json!({
-                    "purc_prog_st_cd": "",
-                    "purc_aply_no": "",
                     "aply_dept_cd": "",
                     "aply_nm": "",
                     "aply_fr_dt": aply_fr_dt,
@@ -46,29 +53,12 @@ impl GetRequest {
                         "AND (APA.APLYT_STUDT_STTS_NO='{mbr_no}' OR APA.HEAD_STAFF_NO='{mbr_no}' OR D.GUID_PROF_NO IN (  SELECT GUID_PROF_NO FROM USR_MST WHERE STUDT_NO='{mbr_no}') OR APA.APLYT_STUDT_STTS_NO=(  SELECT GUID_PROF_NO FROM USR_MST WHERE STUDT_NO='{mbr_no}'))",
                         mbr_no=mbr_no,
                     ),
+                    "purc_aply_no": "",
+                    "purc_prog_st_cd": "",
                 }),
             )
             .await?;
         dbg!(response);
         todo!()
     }
-}
-
-/// 직접구매신청상품
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct ProductBuy {
-    /// 상품명
-    pub name: String,
-    /// 단위
-    #[serde(flatten)]
-    pub amount: ProductAmount,
-    /// 자산등재여부
-    pub is_resource: bool,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(tag = "unit", content = "amount")]
-/// 직접구매상품단위
-pub enum ProductAmount {
-    EA(usize),
 }

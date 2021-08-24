@@ -1,18 +1,5 @@
-[package]
-name = "ya-gist"
-version = "0.1.0"
-edition = "2018"
-description = "GIST Administrative Automation Program"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
-[dependencies]
-anyhow = "1.0"
-chrono = "0.4"
-google-sheets4 = "2.0"
-log = "0.4"
-reqwest = { version = "0.11", features = ["cookies", "json"] }
-serde = {version = "1.0", features = ["derive"]}
-serde_json = "1.0"
-simple_logger = "1.13"
-tokio = { version = "1.8", features = ["full"] }
+[workspace]
+members = [
+    "controller",
+    "core",
+]

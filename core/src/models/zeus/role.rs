@@ -22,13 +22,3 @@ pub struct User {
     /// 영문명
     pub user_nm_eng: String,
 }
-
-impl User {
-    pub(super) async fn get(client: &super::ZeusClient) -> super::Result<Self> {
-        Ok(client
-            .get("/sys/main/role.do", None, ())
-            .await?
-            .pop()
-            .unwrap())
-    }
-}
