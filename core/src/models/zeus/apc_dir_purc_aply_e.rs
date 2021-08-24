@@ -15,9 +15,17 @@ pub mod get {
     /// 직접구매 아이템
     #[derive(Clone, Debug, Serialize, Deserialize)]
     pub struct ResponseItem {}
+
+    impl Request {
+        pub async fn call(&self, client: &crate::api::Client) -> anyhow::Result<Response> {
+            client.get(super::common::RESOURCE_URI, self).await
+        }
+    }
 }
 
 pub mod common {
+    pub const RESOURCE_URI: &str = "/zeus/apc/";
+
     /// 직접구매신청상품
     #[derive(Clone, Debug, Serialize, Deserialize)]
     pub struct ProductBuy {

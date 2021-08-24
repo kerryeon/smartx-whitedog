@@ -6,7 +6,7 @@ use crate::api::*;
 use crate::status::ToResponse;
 
 pub fn mount(builder: rocket::Rocket<rocket::Build>) -> rocket::Rocket<rocket::Build> {
-    builder.mount("/zeus/apc/", routes![get])
+    builder.mount(model::common::RESOURCE_URI, routes![get])
 }
 
 #[get("/?<request..>")]
@@ -14,7 +14,7 @@ async fn get(
     client: &State<super::ZeusClient>,
     request: model::get::Request,
 ) -> Json<Status<model::get::Response>> {
-    request.get(client).await.to_response()
+    request.exec(client).await.to_response()
 }
 
 #[async_trait]
@@ -23,7 +23,7 @@ impl GetRequest for model::get::Request {
 
     type Response = model::get::Response;
 
-    async fn get(&self, client: &Self::Client) -> anyhow::Result<Self::Response> {
+    async fn exec(&self, client: &Self::Client) -> anyhow::Result<Self::Response> {
         let now = Utc::now();
 
         let mbr_no = &client.user().mbr_no;

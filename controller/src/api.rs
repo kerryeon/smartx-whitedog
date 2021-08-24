@@ -4,5 +4,5 @@ pub trait GetRequest {
 
     type Response;
 
-    async fn get(&self, client: &Self::Client) -> anyhow::Result<Self::Response>;
+    async fn exec(&self, client: &Self::Client) -> anyhow::Result<Self::Response>;
 }
