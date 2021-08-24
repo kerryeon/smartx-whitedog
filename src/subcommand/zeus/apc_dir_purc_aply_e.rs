@@ -3,31 +3,15 @@ use chrono::{Duration, Utc};
 
 use super::ZeusClient;
 
-#[derive(Clone, Debug, Serialize, Deserialize, Clap)]
-#[clap(about = "구매 - (신)직접구매신청")]
-pub enum SubCommandZeusApcDirPurcAplyE {
-    Get(SubCommandZeusApcDirPurcAplyEGet),
-}
-
-impl SubCommandZeusApcDirPurcAplyE {
-    pub async fn exec(&self, client: &ZeusClient) -> Result<()> {
-        match self {
-            Self::Get(e) => e.exec(client).await,
-        }
-    }
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize, Clap)]
-#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
-#[clap(about = "구매 - (신)직접구매신청 - 조회")]
-pub struct SubCommandZeusApcDirPurcAplyEGet {
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct GetRequest {
     /// 시작일자
     pub aply_fr_dt: Option<String>,
     /// 종료일자
     pub aply_to_dt: Option<String>,
 }
 
-impl SubCommandZeusApcDirPurcAplyEGet {
+impl GetRequest {
     const DATETIME_FORMAT: &'static str = "%Y%m%d";
 
     pub async fn exec(&self, client: &ZeusClient) -> Result<()> {
@@ -68,4 +52,23 @@ impl SubCommandZeusApcDirPurcAplyEGet {
         dbg!(response);
         todo!()
     }
+}
+
+/// 직접구매신청상품
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct ProductBuy {
+    /// 상품명
+    pub name: String,
+    /// 단위
+    #[serde(flatten)]
+    pub amount: ProductAmount,
+    /// 자산등재여부
+    pub is_resource: bool,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(tag = "unit", content = "amount")]
+/// 직접구매상품단위
+pub enum ProductAmount {
+    EA(usize),
 }

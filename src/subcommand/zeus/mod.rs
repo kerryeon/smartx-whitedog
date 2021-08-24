@@ -2,27 +2,11 @@ use std::str::Split;
 
 use anyhow::Result;
 use reqwest::RequestBuilder;
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use serde::{de::DeserializeOwned, Serialize};
 
 pub mod role;
 
 mod apc_dir_purc_aply_e;
-
-#[derive(Clone, Debug, Serialize, Deserialize, Clap)]
-#[clap(about = "GIST ZEUS System")]
-pub enum SubCommandZeus {
-    #[clap(subcommand)]
-    Buy(self::apc_dir_purc_aply_e::SubCommandZeusApcDirPurcAplyE),
-}
-
-impl SubCommandZeus {
-    pub async fn exec(&self) -> Result<()> {
-        let client = ZeusClient::infer().await?;
-        match self {
-            Self::Buy(e) => e.exec(&client).await,
-        }
-    }
-}
 
 pub struct ZeusClient {
     client: reqwest::Client,
@@ -43,7 +27,7 @@ impl ZeusClient {
     pub async fn infer() -> Result<Self> {
         let mut client = Self::try_default()?;
         client.login().await?;
-        client.user.replace(client.get_user().await?);
+        client.user.replace(self::role::User::get(&client).await?);
         Ok(client)
     }
 

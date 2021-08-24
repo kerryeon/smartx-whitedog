@@ -23,9 +23,9 @@ pub struct User {
     pub user_nm_eng: String,
 }
 
-impl super::ZeusClient {
-    pub async fn get_user(&self) -> super::Result<User> {
-        Ok(self
+impl User {
+    pub(super) async fn get(client: &super::ZeusClient) -> super::Result<Self> {
+        Ok(client
             .get("/sys/main/role.do", None, ())
             .await?
             .pop()
