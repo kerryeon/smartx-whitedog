@@ -22,7 +22,7 @@ pub mod get {
 
 pub mod res {
     /// 리소스 경로
-    pub const RESOURCE_URI: &str = "/zeus/apc/";
+    pub const RESOURCE_URI: &str = "/zeus/apa/";
 
     /// 직접구매상품
     #[derive(Clone, Debug, Serialize, Deserialize)]
