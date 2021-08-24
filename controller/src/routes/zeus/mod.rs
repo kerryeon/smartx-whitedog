@@ -66,7 +66,7 @@ impl ZeusClient {
             "login_id": &std::env::var("ZEUS_ID")?,
             "login_pw": &std::env::var("ZEUS_PASSWORD")?,
         }));
-        let builder = builder.header("Referer", "https://zeus.gist.ac.kr/sys/main/login.do");
+        let builder = builder.header("Referer", format!("{}/sys/main/login.do", Self::origin()));
 
         let response = builder.send().await?;
         let wmonid = response

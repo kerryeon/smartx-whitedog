@@ -1,5 +1,5 @@
 [package]
-name = "ya-gist"
+name = "ya-gist-controller"
 version = "0.1.0"
 edition = "2018"
 description = "GIST Administrative Automation Program"
