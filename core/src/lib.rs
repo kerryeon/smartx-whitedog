@@ -1,6 +1,7 @@
 #[macro_use]
 extern crate serde;
 
+#[cfg(feature = "reqwest")]
 pub mod api;
 pub mod models;
 

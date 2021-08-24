@@ -1,7 +1,7 @@
 pub mod get {
     /// 직접구매조회
     #[cfg_attr(feature = "rocket", derive(rocket::FromForm))]
-    #[derive(Clone, Debug, Serialize, Deserialize)]
+    #[derive(Clone, Debug, Default, Serialize, Deserialize)]
     pub struct Request {
         /// 시작일자
         pub aply_fr_dt: Option<String>,
@@ -10,21 +10,26 @@ pub mod get {
     }
 
     /// 직접구매목록
-    pub type Response = Vec<ResponseItem>;
+    pub type Response = Vec<super::res::Product>;
 
-    /// 직접구매 아이템
-    #[derive(Clone, Debug, Serialize, Deserialize)]
-    pub struct ResponseItem {}
-
+    #[cfg(feature = "reqwest")]
     impl Request {
         pub async fn call(&self, client: &crate::api::Client) -> anyhow::Result<Response> {
-            client.get(super::common::RESOURCE_URI, self).await
+            client.get(super::res::RESOURCE_URI, self).await
         }
     }
 }
 
-pub mod common {
+pub mod res {
+    /// 리소스 경로
     pub const RESOURCE_URI: &str = "/zeus/apc/";
+
+    /// 직접구매상품
+    #[derive(Clone, Debug, Serialize, Deserialize)]
+    pub struct Product {
+        #[serde(flatten)]
+        pub inner: ProductBuy,
+    }
 
     /// 직접구매신청상품
     #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -38,9 +43,9 @@ pub mod common {
         pub is_resource: bool,
     }
 
+    /// 직접구매상품단위
     #[derive(Clone, Debug, Serialize, Deserialize)]
     #[serde(tag = "unit", content = "amount")]
-    /// 직접구매상품단위
     pub enum ProductAmount {
         EA(usize),
     }

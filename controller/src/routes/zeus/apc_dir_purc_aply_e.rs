@@ -6,7 +6,7 @@ use crate::api::*;
 use crate::status::ToResponse;
 
 pub fn mount(builder: rocket::Rocket<rocket::Build>) -> rocket::Rocket<rocket::Build> {
-    builder.mount(model::common::RESOURCE_URI, routes![get])
+    builder.mount(model::res::RESOURCE_URI, routes![get])
 }
 
 #[get("/?<request..>")]
@@ -24,6 +24,27 @@ impl GetRequest for model::get::Request {
     type Response = model::get::Response;
 
     async fn exec(&self, client: &Self::Client) -> anyhow::Result<Self::Response> {
+        #[derive(Debug, serde::Deserialize)]
+        #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+        struct RawResponse {
+            purc_aply_no: String,
+            purc_prog_st_cd: String,
+            purc_aply_cd: String,
+            purc_title: String,
+            aply_dt: String,
+            aply_studt_dept_cd: String,
+            aply_studt_dept_nm: String,
+            aplyt_studt_stts_no: String,
+            aplyt_studt_stts_nm: String,
+            aply_dept_cd: String,
+            aply_dept_nm: String,
+            aplyt_staff_no: String,
+            aplyt_staff_nm: String,
+            aplyt_tel_no: String,
+            aplyt_email: String,
+            insp_dept_cd: String,
+        }
+
         let now = Utc::now();
 
         let mbr_no = &client.user().mbr_no;
@@ -38,7 +59,7 @@ impl GetRequest for model::get::Request {
             .cloned()
             .unwrap_or_else(|| now.format(Self::Client::DATETIME_FORMAT).to_string());
 
-        let response: Vec<serde_json::Value> = client
+        let response: Vec<RawResponse> = client
             .get(
                 "/apc/apcDirPurcAplyE/selectMain.do",
                 Some("PERS01^PERS01_15^002^ApcDirPurcAplyE"),
@@ -58,7 +79,8 @@ impl GetRequest for model::get::Request {
                 }),
             )
             .await?;
+
         dbg!(response);
-        todo!()
+        Ok(vec![])
     }
 }

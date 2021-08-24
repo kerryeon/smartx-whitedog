@@ -1,5 +1,2 @@
 [workspace]
-members = [
-    "controller",
-    "core",
-]
+members = ["controller", "core", "examples"]

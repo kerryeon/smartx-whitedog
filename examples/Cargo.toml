@@ -1,0 +1,18 @@
+[package]
+name = "ya-gist-examples"
+version = "0.1.0"
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[package.metadata.release]
+disable-release = true
+
+[dependencies]
+anyhow = "1.0"
+tokio = { version = "1.8", features = ["full"] }
+ya-gist-core = { path = "../core", features = ["reqwest"] }
+
+[[example]]
+name = "zeus_apc_dir_purc_aply_e_get"
+path = "zeus/apc_dir_purc_aply_e_get.rs"
