@@ -25,7 +25,9 @@ pub struct SubCommandZeusApcDirPurcAplyEGet {
 
 impl SubCommandZeusApcDirPurcAplyEGet {
     pub async fn exec(&self, client: &ZeusClient) -> Result<()> {
-        client.get("/sys/main/role.do", self).await?;
+        client
+            .get("/apc/apcDirPurcAplyE/selectMain.do", self)
+            .await?;
         todo!()
     }
 }
