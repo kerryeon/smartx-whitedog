@@ -8,6 +8,7 @@ description = "GIST Administrative Automation Program"
 
 [dependencies]
 anyhow = "1.0"
+chrono = "0.4"
 clap = "~3.0.0-beta.2"
 google-sheets4 = "2.0"
 log = "0.4"

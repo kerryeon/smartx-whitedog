@@ -6,6 +6,7 @@ pub struct User {
     pub base_dept_nm: String,
     pub domfrnr_cd: String,
     pub lang_cd: String,
+    /// 학번
     pub mbr_no: String,
     pub now_st_cd: String,
     pub now_st_nm: String,
@@ -24,6 +25,10 @@ pub struct User {
 
 impl super::ZeusClient {
     pub async fn get_user(&self) -> super::Result<User> {
-        self.get("/sys/main/role.do", ()).await
+        Ok(self
+            .get("/sys/main/role.do", None, ())
+            .await?
+            .pop()
+            .unwrap())
     }
 }
