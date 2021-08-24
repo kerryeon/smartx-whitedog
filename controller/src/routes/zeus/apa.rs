@@ -1,6 +1,6 @@
 use chrono::{Duration, Utc};
 use rocket::{serde::json::Json, State};
-use ya_gist_core::models::{status::Status, zeus::apc_dir_purc_aply_e as model};
+use ya_gist_core::models::{status::Status, zeus::apa as model};
 
 use crate::api::*;
 use crate::status::ToResponse;

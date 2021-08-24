@@ -7,10 +7,10 @@ use ya_gist_core::models::zeus::role::User;
 
 pub mod role;
 
-mod apc_dir_purc_aply_e;
+mod apa;
 
 pub fn mount(builder: rocket::Rocket<rocket::Build>) -> rocket::Rocket<rocket::Build> {
-    let builder = self::apc_dir_purc_aply_e::mount(builder);
+    let builder = self::apa::mount(builder);
     builder
 }
 

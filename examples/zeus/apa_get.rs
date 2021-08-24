@@ -1,4 +1,4 @@
-use ya_gist_core::{api::Client, models::zeus::apc_dir_purc_aply_e::get as model};
+use ya_gist_core::{api::Client, models::zeus::apa::get as model};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {

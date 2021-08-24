@@ -14,5 +14,5 @@ tokio = { version = "1.8", features = ["full"] }
 ya-gist-core = { path = "../core", features = ["reqwest"] }
 
 [[example]]
-name = "zeus_apc_dir_purc_aply_e_get"
-path = "zeus/apc_dir_purc_aply_e_get.rs"
+name = "zeus_apa_get"
+path = "zeus/apa_get.rs"
