@@ -1,5 +1,5 @@
 [package]
-name = "ya-gist-core"
+name = "ya-gist-common"
 version = "0.1.0"
 edition = "2018"
 
@@ -7,11 +7,10 @@ edition = "2018"
 
 [features]
 default = []
-reqwest = ["ya-gist-common/reqwest", "ya-gist-zeus-core/reqwest"]
 
 [dependencies]
 anyhow = "1.0"
-# google-sheets4 = "2.0"
+log = "0.4"
+reqwest = { version = "0.11", optional = true, features = ["json"] }
 serde = { version = "1.0", features = ["derive"] }
-ya-gist-common = { path = "../common" }
-ya-gist-zeus-core = { path = "../zeus/core" }
+simple_logger = "1.13"

@@ -1,2 +1,2 @@
 [workspace]
-members = ["controller", "core", "examples"]
+members = ["core", "examples", "zeus/client", "zeus/core", "zeus/manager"]

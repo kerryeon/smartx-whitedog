@@ -1,19 +1,18 @@
+#[macro_use]
+extern crate anyhow;
+#[macro_use]
+extern crate log;
+#[macro_use]
+extern crate serde_json;
+
 use std::str::Split;
 
 use anyhow::Result;
 use reqwest::RequestBuilder;
 use serde::{de::DeserializeOwned, Serialize};
-use ya_gist_core::models::zeus::role::User;
+use ya_gist_zeus_core::models::role::User;
 
-pub mod role;
-
-mod apa;
-
-pub fn mount(builder: rocket::Rocket<rocket::Build>) -> rocket::Rocket<rocket::Build> {
-    let builder = self::apa::mount(builder);
-    builder
-}
-
+/// Zeus 시스템에 접속 가능한 클라이언트입니다.
 pub struct ZeusClient {
     client: reqwest::Client,
     wmonid: Option<String>,
@@ -23,6 +22,7 @@ pub struct ZeusClient {
 impl ZeusClient {
     pub const DATETIME_FORMAT: &'static str = "%Y%m%d";
 
+    /// 클라이언트를 초기화합니다.
     fn try_default() -> Result<Self> {
         Ok(Self {
             client: reqwest::Client::builder().cookie_store(true).build()?,
@@ -39,11 +39,13 @@ impl ZeusClient {
         Ok(client)
     }
 
-    pub(crate) fn user(&self) -> &User {
+    /// 사용자 정보를 불러옵니다.
+    pub fn user(&self) -> &User {
         self.user.as_ref().unwrap()
     }
 
-    pub(crate) async fn get<D, R>(
+    /// 시스템으로부터 데이터를 요청합니다.
+    pub async fn get<D, R>(
         &self,
         resource_uri: &str,
         pg_key: Option<&str>,
@@ -60,6 +62,16 @@ impl ZeusClient {
         Payload::new(response.text().await?).to_json()
     }
 
+    /// 사용자 정보를 불러옵니다.
+    async fn get_user(&self) -> Result<User> {
+        Ok(self
+            .get("/sys/main/role.do", None, ())
+            .await?
+            .pop()
+            .unwrap())
+    }
+
+    /// 시스템에 로그인합니다.
     async fn login(&mut self) -> Result<()> {
         let url = format!("{}{}", Self::origin(), "/sys/login/auth.do?callback=");
         let builder = self.client.post(url).form(&json!({
@@ -97,6 +109,7 @@ impl ZeusClient {
         }
     }
 
+    /// 웹 요청에 데이터를 추가합니다.
     fn attach_payload<P>(
         &self,
         builder: RequestBuilder,
@@ -119,6 +132,7 @@ impl ZeusClient {
     }
 }
 
+/// 시스템의 자료형
 struct Payload(String);
 
 impl Payload {
@@ -126,10 +140,12 @@ impl Payload {
     const SEP: &'static str = "\u{001e}";
     const DEP: &'static str = "\u{001f}";
 
+    /// 시스템이 해석할 수 있는 자료형을 생성합니다.
     fn new(data: String) -> Self {
         Self(data)
     }
 
+    /// JSON 데이터로부터 자료를 해석합니다.
     fn from_json<T>(wmonid: Option<&str>, pg_key: Option<&str>, data: T) -> Result<Self>
     where
         T: Serialize,
@@ -167,6 +183,7 @@ impl Payload {
         Ok(Self(data))
     }
 
+    /// JSON 데이터로 변환합니다.
     fn to_json<T>(&self) -> Result<Vec<T>>
     where
         T: DeserializeOwned,
@@ -191,6 +208,7 @@ impl Payload {
             }
         }
 
+        #[allow(dead_code)]
         #[derive(Debug)]
         enum FieldType {
             BigDecimal { size: usize },
@@ -270,6 +288,7 @@ impl Payload {
             .map_err(|e| anyhow!("failed to parse: {}", e))
     }
 
+    /// 문자열을 반환합니다.
     fn into_string(self) -> String {
         self.0
     }

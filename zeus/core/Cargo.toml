@@ -1,5 +1,5 @@
 [package]
-name = "ya-gist-core"
+name = "ya-gist-zeus-core"
 version = "0.1.0"
 edition = "2018"
 
@@ -7,11 +7,10 @@ edition = "2018"
 
 [features]
 default = []
-reqwest = ["ya-gist-common/reqwest", "ya-gist-zeus-core/reqwest"]
+reqwest = ["ya-gist-common/reqwest"]
 
 [dependencies]
 anyhow = "1.0"
-# google-sheets4 = "2.0"
+rocket = { version = "0.5.0-rc.1", optional = true, default-features = false }
 serde = { version = "1.0", features = ["derive"] }
-ya-gist-common = { path = "../common" }
-ya-gist-zeus-core = { path = "../zeus/core" }
+ya-gist-common = { path = "../../common" }

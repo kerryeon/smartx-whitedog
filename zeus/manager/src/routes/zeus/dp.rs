@@ -1,6 +1,7 @@
 use chrono::{Duration, Utc};
 use rocket::{serde::json::Json, State};
-use ya_gist_core::models::{status::Status, zeus::apa as model};
+use ya_gist_zeus_client::ZeusClient;
+use ya_gist_zeus_core::models::{dp as model, status::Status};
 
 use crate::api::*;
 use crate::status::ToResponse;
@@ -11,7 +12,7 @@ pub fn mount(builder: rocket::Rocket<rocket::Build>) -> rocket::Rocket<rocket::B
 
 #[get("/?<request..>")]
 async fn get(
-    client: &State<super::ZeusClient>,
+    client: &State<ZeusClient>,
     request: model::get::Request,
 ) -> Json<Status<model::get::Response>> {
     request.exec(client).await.to_response()
@@ -19,7 +20,7 @@ async fn get(
 
 #[async_trait]
 impl GetRequest for model::get::Request {
-    type Client = super::ZeusClient;
+    type Client = ZeusClient;
 
     type Response = model::get::Response;
 

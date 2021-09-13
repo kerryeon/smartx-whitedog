@@ -14,7 +14,7 @@ pub mod get {
 
     #[cfg(feature = "reqwest")]
     impl Request {
-        pub async fn call(&self, client: &crate::api::Client) -> anyhow::Result<Response> {
+        pub async fn call(&self, client: &ya_gist_common::api::Client) -> anyhow::Result<Response> {
             client.get(super::res::RESOURCE_URI, self).await
         }
     }

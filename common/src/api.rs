@@ -1,7 +1,6 @@
 use anyhow::Result;
 use reqwest::{Method, Url};
-use rocket::serde::DeserializeOwned;
-use serde::Serialize;
+use serde::{de::DeserializeOwned, Serialize};
 
 use crate::models::status::Status;
 

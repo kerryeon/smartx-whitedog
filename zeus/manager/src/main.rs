@@ -1,6 +1,4 @@
 #[macro_use]
-extern crate anyhow;
-#[macro_use]
 extern crate rocket;
 #[macro_use]
 extern crate serde_json;
@@ -18,7 +16,7 @@ async fn main() {
 }
 
 async fn try_main() -> anyhow::Result<()> {
-    ya_gist_core::init_logger();
+    ya_gist_zeus_core::init::init_logger();
 
     let cors = {
         use rocket::http::Method;
@@ -39,7 +37,7 @@ async fn try_main() -> anyhow::Result<()> {
 
     self::routes::mount(
         rocket::build()
-            .manage(self::routes::zeus::ZeusClient::infer().await?)
+            .manage(ya_gist_zeus_client::ZeusClient::infer().await?)
             .attach(cors),
     )
     .launch()
