@@ -1,7 +1,7 @@
-use chrono::{Duration, Utc};
 use rocket::{serde::json::Json, State};
 use ya_gist_zeus_client::ZeusClient;
 use ya_gist_zeus_core::models::{
+    chrono::{DateTime, DateTimeFormat},
     dp as model,
     status::{Status, ToResponse},
 };
@@ -87,19 +87,17 @@ impl GetRequest for model::get::Request {
             crud_txt: String,
         }
 
-        let now = Utc::now();
+        let now = DateTime::now();
 
         let mbr_no = &client.user().mbr_no;
-        let aply_fr_dt = self.aply_to_dt.as_ref().cloned().unwrap_or_else(|| {
-            (now - Duration::weeks(4))
-                .format(Self::Client::DATETIME_FORMAT)
-                .to_string()
-        });
+        let aply_fr_dt = self
+            .date_begin
+            .unwrap_or_else(|| DateTime::weeks_ago(24))
+            .format(DateTimeFormat::YYYYMMDD);
         let aply_to_dt = self
-            .aply_to_dt
-            .as_ref()
-            .cloned()
-            .unwrap_or_else(|| now.format(Self::Client::DATETIME_FORMAT).to_string());
+            .date_begin
+            .unwrap_or_else(|| DateTime::now())
+            .format(DateTimeFormat::YYYYMMDD);
 
         let response: Vec<RawResponse> = client
             .get(
@@ -123,6 +121,7 @@ impl GetRequest for model::get::Request {
             .await?;
 
         dbg!(response);
-        Ok(vec![])
+        todo!()
+        // Ok(Self::Response { products: vec![] })
     }
 }

@@ -10,7 +10,7 @@ use std::str::Split;
 use anyhow::Result;
 use reqwest::RequestBuilder;
 use serde::{de::DeserializeOwned, Serialize};
-use ya_gist_zeus_core::models::role::User;
+use ya_gist_zeus_core::models::user::User;
 
 /// Zeus 시스템에 접속 가능한 클라이언트입니다.
 pub struct ZeusClient {
@@ -20,8 +20,6 @@ pub struct ZeusClient {
 }
 
 impl ZeusClient {
-    pub const DATETIME_FORMAT: &'static str = "%Y%m%d";
-
     /// 클라이언트를 초기화합니다.
     fn try_default() -> Result<Self> {
         Ok(Self {
@@ -216,9 +214,12 @@ impl Payload {
         }
 
         impl FieldType {
-            fn from_str(ty: &str) -> Result<Self> {
-                let (ty, arg) = try_split(ty, "(")?;
-                let size = (&arg[..arg.len() - 1]).parse()?;
+            fn from_str(token: &str) -> Result<Self> {
+                let token = Self::remove_seq_token(token);
+                let (ty, size) = try_split(token, "(")?;
+                // remove ")" token, then parse it
+                let size = size[0..size.len() - 1].parse()?;
+
                 match ty {
                     "bigdecimal" => Ok(Self::BigDecimal { size }),
                     "string" => Ok(Self::String { size }),
@@ -226,10 +227,20 @@ impl Payload {
                 }
             }
 
-            fn try_parse_value(&self, value: &str) -> Result<serde_json::Value> {
+            fn try_parse_value(&self, token: &str) -> Result<serde_json::Value> {
+                let token = Self::remove_seq_token(token);
+
                 match self {
-                    Self::BigDecimal { .. } => Ok(value.parse::<i64>()?.into()),
-                    Self::String { .. } => Ok(value.to_string().into()),
+                    Self::BigDecimal { .. } => Ok(token.parse::<i64>()?.into()),
+                    Self::String { .. } => Ok(token.to_string().into()),
+                }
+            }
+
+            fn remove_seq_token<'a>(token: &'a str) -> &'a str {
+                if token.ends_with(Payload::SEP) {
+                    &token[0..token.len() - 1]
+                } else {
+                    token
                 }
             }
         }
@@ -284,6 +295,7 @@ impl Payload {
             .map(|e| e.map(serde_json::Value::Object))
             .collect::<Result<_>>()?;
         debug!("{:?}", &fields);
+        debug!("{:?}", &values);
         serde_json::from_value(serde_json::Value::Array(values))
             .map_err(|e| anyhow!("failed to parse: {}", e))
     }

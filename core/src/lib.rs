@@ -1,6 +1,3 @@
-#[macro_use]
-extern crate serde;
-
 pub mod models;
 
 #[cfg(feature = "reqwest2")]

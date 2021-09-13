@@ -7,6 +7,7 @@ edition = "2018"
 
 [features]
 default = []
+api = []
 reqwest2 = ["ya-gist-common/reqwest"]
 rocket2 = ["rocket", "ya-gist-common/rocket"]
 

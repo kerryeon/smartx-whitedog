@@ -1,4 +1,5 @@
 pub mod dp;
-pub mod role;
+pub mod user;
 
+#[cfg(feature = "api")]
 pub use ya_gist_common::models::*;
