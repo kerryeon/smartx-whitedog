@@ -1,10 +1,12 @@
 use chrono::{Duration, Utc};
 use rocket::{serde::json::Json, State};
 use ya_gist_zeus_client::ZeusClient;
-use ya_gist_zeus_core::models::{dp as model, status::Status};
+use ya_gist_zeus_core::models::{
+    dp as model,
+    status::{Status, ToResponse},
+};
 
 use crate::api::*;
-use crate::status::ToResponse;
 
 pub fn mount(builder: rocket::Rocket<rocket::Build>) -> rocket::Rocket<rocket::Build> {
     builder.mount(model::res::RESOURCE_URI, routes![get])

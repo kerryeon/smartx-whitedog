@@ -11,7 +11,7 @@ disable-release = true
 [dependencies]
 anyhow = "1.0"
 tokio = { version = "1.8", features = ["full"] }
-ya-gist-core = { path = "../core", features = ["reqwest"] }
+ya-gist-core = { path = "../core", features = ["reqwest2"] }
 
 [[example]]
 name = "zeus_dp_request_get"

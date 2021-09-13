@@ -7,7 +7,8 @@ edition = "2018"
 
 [features]
 default = []
-reqwest = ["ya-gist-common/reqwest", "ya-gist-zeus-core/reqwest"]
+reqwest2 = ["ya-gist-common/reqwest", "ya-gist-zeus-core/reqwest2"]
+rocket2 = ["ya-gist-common/rocket", "ya-gist-zeus-core/rocket2"]
 
 [dependencies]
 anyhow = "1.0"

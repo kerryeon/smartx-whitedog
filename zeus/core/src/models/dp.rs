@@ -1,6 +1,6 @@
 pub mod get {
     /// 직접구매조회
-    #[cfg_attr(feature = "rocket", derive(rocket::FromForm))]
+    #[cfg_attr(feature = "rocket2", derive(rocket::FromForm))]
     #[derive(Clone, Debug, Default, Serialize, Deserialize)]
     pub struct Request {
         /// 시작일자
@@ -12,7 +12,7 @@ pub mod get {
     /// 직접구매목록
     pub type Response = Vec<super::res::Product>;
 
-    #[cfg(feature = "reqwest")]
+    #[cfg(feature = "reqwest2")]
     impl Request {
         pub async fn call(&self, client: &ya_gist_common::api::Client) -> anyhow::Result<Response> {
             client.get(super::res::RESOURCE_URI, self).await
