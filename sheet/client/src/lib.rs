@@ -1,12 +1,9 @@
+#![feature(cell_leak)]
+
 #[macro_use]
 extern crate anyhow;
 
-use std::{
-    env, fmt,
-    marker::PhantomData,
-    ops::{self, Index},
-    str::FromStr,
-};
+use std::{env, fmt, marker::PhantomData, ops, str::FromStr};
 
 use anyhow::Result;
 use google_sheets4::{
@@ -85,12 +82,9 @@ impl<'a> Spreadsheet<'a> {
             Some(object) => {
                 let fields_range = fields_range.to_string();
                 let fields_struct: Vec<_> = object.properties.into_iter().map(|(k, _)| k).collect();
-                let fields_matrix = self.get(&fields_range).await?;
-                dbg!(&fields_matrix.size);
-                println!("{}", &fields_matrix.size);
-                dbg!(fields_matrix.data.len());
+                let mut fields_matrix = self.get(&fields_range).await?;
 
-                for row in &fields_matrix.data {
+                for row in &mut fields_matrix {
                     dbg!(row);
                 }
 
@@ -112,13 +106,13 @@ impl<'a> Spreadsheet<'a> {
     async fn get(&self, range: &str) -> Result<Matrix> {
         let (_, ret) = self.client.values_get(&self.id, range).doit().await?;
         Ok(Matrix {
-            size: ret.range.expect("range").parse()?,
+            shape: ret.range.expect("range").parse()?,
             data: ret.values.expect("values"),
         })
     }
 
     async fn update(&self, matrix: Matrix) -> Result<()> {
-        let range = matrix.size.to_string();
+        let range = matrix.shape.to_string();
         let value_range = ValueRange {
             major_dimension: None,
             range: Some(range.clone()),
@@ -155,18 +149,100 @@ where
 
 #[derive(Clone, Debug)]
 pub struct Matrix {
-    size: MatrixSize,
+    shape: MatrixShape,
     data: Vec<Vec<String>>,
 }
 
-#[derive(Clone, Debug)]
-pub struct MatrixSize {
-    sheet: String,
-    start: MatrixIndex,
-    end: MatrixIndex,
+impl Matrix {
+    pub fn get(&mut self, index: MatrixIndex) -> Option<&mut String> {
+        self.get_row(index.row)
+            .and_then(|e| e.get_mut(index.col as usize))
+    }
+
+    pub fn get_row(&mut self, row: u32) -> Option<&mut [String]> {
+        self.fill_default_on_row(row);
+        self.data.get_mut(row as usize).map(|e| e.as_mut_slice())
+    }
+
+    fn fill_default_on_row(&mut self, row: u32) {
+        let row_index = row as usize;
+        let row_length = self.shape.rows() as usize;
+        let col_length = self.shape.cols() as usize;
+
+        if row_index < row_length {
+            while self.data.len() <= row_index {
+                self.data.push(Default::default());
+            }
+            let row = self.data.get_mut(row_index).unwrap();
+            while row.len() <= col_length {
+                row.push(Default::default());
+            }
+        }
+    }
+
+    pub fn shape(&self) -> &MatrixShape {
+        &self.shape
+    }
 }
 
-impl FromStr for MatrixSize {
+pub mod iter {
+    use std::cell::UnsafeCell;
+
+    use super::Matrix;
+
+    #[derive(Debug)]
+    pub struct MatrixIterMut<'a> {
+        _thread_lock: UnsafeCell<()>,
+        matrix: &'a mut Matrix,
+        index: u32,
+    }
+
+    impl<'a> IntoIterator for &'a mut Matrix {
+        type Item = &'a mut [String];
+
+        type IntoIter = MatrixIterMut<'a>;
+
+        fn into_iter(self) -> Self::IntoIter {
+            Self::IntoIter {
+                _thread_lock: Default::default(),
+                matrix: self,
+                index: 0,
+            }
+        }
+    }
+
+    impl<'a> Iterator for MatrixIterMut<'a> {
+        type Item = &'a mut [String];
+
+        fn next(&mut self) -> Option<Self::Item> {
+            let index = self.index;
+            self.index += 1;
+            unsafe { std::mem::transmute(self.matrix.get_row(index)) }
+        }
+    }
+
+    impl IntoIterator for Matrix {
+        type Item = Vec<String>;
+
+        type IntoIter = std::vec::IntoIter<Vec<String>>;
+
+        fn into_iter(mut self) -> Self::IntoIter {
+            for row in 0..self.shape.rows() {
+                self.fill_default_on_row(row);
+            }
+            self.data.into_iter()
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct MatrixShape {
+    pub sheet: String,
+    pub start: MatrixIndex,
+    pub end: MatrixIndex,
+}
+
+impl FromStr for MatrixShape {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -195,7 +271,7 @@ impl FromStr for MatrixSize {
     }
 }
 
-impl fmt::Display for MatrixSize {
+impl fmt::Display for MatrixShape {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.sheet.fmt(f)?;
         "!".fmt(f)?;
@@ -208,28 +284,20 @@ impl fmt::Display for MatrixSize {
     }
 }
 
-impl<'a> Index<&'a MatrixIndex> for MatrixSize {
-    type Output = String;
+impl MatrixShape {
+    pub fn cols(&self) -> u16 {
+        self.end.col - self.start.col + 1
+    }
 
-    fn index(&self, index: &'a MatrixIndex) -> &Self::Output {
-        todo!()
+    pub fn rows(&self) -> u32 {
+        self.end.row - self.start.row + 1
     }
 }
 
-impl MatrixSize {
-    pub fn width(&self) -> u16 {
-        self.end.col - self.start.col
-    }
-
-    pub fn height(&self) -> u32 {
-        self.end.row - self.start.row
-    }
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct MatrixIndex {
-    col: u16,
-    row: u32,
+    pub col: u16,
+    pub row: u32,
 }
 
 impl FromStr for MatrixIndex {
@@ -301,4 +369,8 @@ impl ops::Sub for MatrixIndex {
 
 impl MatrixIndex {
     const NUM_ALPHABETS: u16 = (b'Z' - b'A' + 1) as u16;
+
+    pub fn new(col: u16, row: u32) -> Self {
+        Self { col, row }
+    }
 }

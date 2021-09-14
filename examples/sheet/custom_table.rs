@@ -26,7 +26,7 @@ async fn main() -> anyhow::Result<()> {
 
     // 정의한 테이블 객체를 불러옵니다.
     let spreadsheet = client.get_sheet_unchecked(spreadsheet_id);
-    let table: Table<MyField> = spreadsheet.get_table("Metadata!A9:G12").await?;
+    let table: Table<MyField> = spreadsheet.get_table("Metadata!A1:G2").await?;
     dbg!(table.get_rows(Some(1)).await?);
 
     Ok(())
