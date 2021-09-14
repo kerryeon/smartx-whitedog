@@ -1,11 +1,13 @@
 #[macro_use]
 extern crate anyhow;
 
-use std::env;
+use std::{env, marker::PhantomData};
 
 use anyhow::Result;
 use google_sheets4::{api::SpreadsheetMethods, Sheets};
 use hyper_rustls::HttpsConnector;
+use schemars::JsonSchema;
+use serde::{de::DeserializeOwned, Serialize};
 use yup_oauth2::ServiceAccountAuthenticator;
 
 pub use google_sheets4::api::ValueRange;
@@ -63,16 +65,71 @@ pub struct Spreadsheet<'a> {
 }
 
 impl<'a> Spreadsheet<'a> {
-    pub async fn update_raw(&self, range: ValueRange) -> Result<()> {
+    pub fn get_table<Field>(&self, fields_range: impl ToString) -> Result<Table<'_, Field>>
+    where
+        Field: Serialize + DeserializeOwned + JsonSchema,
+    {
+        let mut schema = schemars::schema_for!(Field).schema;
+        let name = schema
+            .metadata()
+            .title
+            .clone()
+            .unwrap_or_else(|| "unknown field".to_string());
+        match schema.object {
+            Some(object) => Ok(Table {
+                spreadsheet: self,
+                name,
+                fields: object.properties.into_iter().map(|(k, _)| k).collect(),
+                fields_range: fields_range.to_string(),
+                _table: PhantomData::<Field>::default(),
+            }),
+            None => bail!(
+                "field {} is not a struct (not supported: enum, union, ...)",
+                name
+            ),
+        }
+    }
+
+    async fn get(&self, range: &str) -> Result<ValueRange> {
+        let (_, ret) = self.client.values_get(&self.id, range).doit().await?;
+        Ok(ret)
+    }
+
+    async fn update(&self, range: ValueRange) -> Result<()> {
         let range_str = range.range.clone().ok_or_else(|| anyhow!("empty range"))?;
-        let (_, range) = self
-            .client
+        self.client
             .values_update(range, &self.id, &range_str)
             .value_input_option("USER_ENTERED")
             .doit()
             .await?;
-
-        println!("Success: {:?}", range);
         Ok(())
+    }
+}
+
+pub struct Table<'a, Field> {
+    spreadsheet: &'a Spreadsheet<'a>,
+    name: String,
+    fields: Vec<String>,
+    fields_range: String,
+    _table: PhantomData<Field>,
+}
+
+impl<'a, Field> Table<'a, Field>
+where
+    Field: Serialize + DeserializeOwned,
+{
+    pub async fn get_rows(&self, length: Option<u32>) -> Result<Vec<Field>> {
+        let range = self.spreadsheet.get(&self.fields_range).await?;
+        // let sheets = spreadsheet.sheets.expect("sheets");
+        // if sheets.len() != 1 {
+        //     bail!(
+        //         "0, 2 or more sheets are detected: {} => {}",
+        //         &self.name,
+        //         sheets.len()
+        //     );
+        // }
+        // dbg!(&sheets[0]);
+        dbg!(range);
+        todo!()
     }
 }
