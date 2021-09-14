@@ -3,14 +3,12 @@
 #[macro_use]
 extern crate anyhow;
 
-use std::{env, fmt, marker::PhantomData, ops, str::FromStr};
+use std::{collections::BTreeMap, env, fmt, marker::PhantomData, str::FromStr};
 
 use anyhow::Result;
-use google_sheets4::{
-    api::{SpreadsheetMethods, ValueRange},
-    Sheets,
-};
+use google_sheets4::{api::ValueRange, Sheets};
 use hyper_rustls::HttpsConnector;
+use inflector::Inflector;
 use schemars::JsonSchema;
 use serde::{de::DeserializeOwned, Serialize};
 use yup_oauth2::ServiceAccountAuthenticator;
@@ -54,20 +52,21 @@ impl SheetClient {
         Ok(Self { hub })
     }
 
-    pub fn get_sheet_unchecked(&self, id: impl ToString) -> Spreadsheet<'_> {
+    pub fn into_sheet_unchecked(self, id: impl ToString) -> Spreadsheet {
         Spreadsheet {
-            client: self.hub.spreadsheets(),
+            client: self.hub,
             id: id.to_string(),
         }
     }
 }
 
-pub struct Spreadsheet<'a> {
-    client: SpreadsheetMethods<'a>,
+#[derive(Clone)]
+pub struct Spreadsheet {
+    client: Sheets,
     id: String,
 }
 
-impl<'a> Spreadsheet<'a> {
+impl Spreadsheet {
     pub async fn get_table<Field>(&self, fields_range: impl ToString) -> Result<Table<'_, Field>>
     where
         Field: Serialize + DeserializeOwned + JsonSchema,
@@ -81,18 +80,42 @@ impl<'a> Spreadsheet<'a> {
         match schema.object {
             Some(object) => {
                 let fields_range = fields_range.to_string();
-                let fields_struct: Vec<_> = object.properties.into_iter().map(|(k, _)| k).collect();
+                let fields_struct: Vec<_> = object
+                    .properties
+                    .into_iter()
+                    // TODO: implement matching types
+                    .map(|(k, schema)| (k, ()))
+                    .collect();
                 let mut fields_matrix = self.get(&fields_range).await?;
+                let fields_shape = fields_matrix.shape.clone();
 
-                for row in &mut fields_matrix {
-                    dbg!(row);
-                }
+                let fields: Vec<_> = fields_matrix
+                    .cols()
+                    .filter_map(|names| {
+                        names
+                            .into_iter()
+                            .map(|name| name.to_snake_case())
+                            .filter_map(|name| {
+                                fields_struct
+                                    .iter()
+                                    .enumerate()
+                                    .find(|(_, (field, ty))| &name == field)
+                                    .map(|(index, (field, ty))| FieldName {
+                                        index: index as u16,
+                                        name,
+                                        field: field.clone(),
+                                        ty: ty.clone(),
+                                    })
+                            })
+                            .next()
+                    })
+                    .collect();
 
                 Ok(Table {
                     spreadsheet: self,
                     name,
-                    fields: todo!(),
-                    fields_range,
+                    fields,
+                    fields_shape,
                     _table: PhantomData::<Field>::default(),
                 })
             }
@@ -104,7 +127,12 @@ impl<'a> Spreadsheet<'a> {
     }
 
     async fn get(&self, range: &str) -> Result<Matrix> {
-        let (_, ret) = self.client.values_get(&self.id, range).doit().await?;
+        let (_, ret) = self
+            .client
+            .spreadsheets()
+            .values_get(&self.id, range)
+            .doit()
+            .await?;
         Ok(Matrix {
             shape: ret.range.expect("range").parse()?,
             data: ret.values.expect("values"),
@@ -120,6 +148,7 @@ impl<'a> Spreadsheet<'a> {
         };
 
         self.client
+            .spreadsheets()
             .values_update(value_range, &self.id, &range)
             .value_input_option("USER_ENTERED")
             .doit()
@@ -128,11 +157,12 @@ impl<'a> Spreadsheet<'a> {
     }
 }
 
+#[derive(Clone)]
 pub struct Table<'a, Field> {
-    spreadsheet: &'a Spreadsheet<'a>,
+    spreadsheet: &'a Spreadsheet,
     name: String,
-    fields: Vec<String>,
-    fields_range: String,
+    fields: Vec<FieldName>,
+    fields_shape: MatrixShape,
     _table: PhantomData<Field>,
 }
 
@@ -141,10 +171,60 @@ where
     Field: Serialize + DeserializeOwned,
 {
     pub async fn get_rows(&self, length: Option<u32>) -> Result<Vec<Field>> {
-        let range = self.spreadsheet.get(&self.fields_range).await?;
-        dbg!(range);
-        todo!()
+        fn parse_col(field: &FieldName, token: String) -> String {
+            // TODO: boolean (Y/N, ...)
+            token
+        }
+
+        let matrix = self
+            .spreadsheet
+            .get(&self.values_shape(length).to_string())
+            .await?;
+
+        // TODO: Vector notation
+        matrix
+            .into_iter()
+            .map(|cols| {
+                let fields: BTreeMap<_, _> = self
+                    .fields
+                    .iter()
+                    .zip(cols)
+                    .map(|(k, v)| (&k.field, parse_col(&k, v)))
+                    .collect();
+                Ok(serde_json::from_value(serde_json::to_value(fields)?)?)
+            })
+            .collect()
     }
+
+    fn values_start(&self) -> MatrixIndex {
+        MatrixIndex {
+            col: self.fields_shape.start.col,
+            row: Some(self.fields_shape.end.row.unwrap() + 1),
+        }
+    }
+
+    fn values_end(&self, row: Option<u32>) -> MatrixIndex {
+        MatrixIndex {
+            col: self.fields_shape.end.col,
+            row: row.map(|row| (self.fields_shape.end.row.unwrap() + row)),
+        }
+    }
+
+    fn values_shape(&self, row: Option<u32>) -> MatrixShape {
+        MatrixShape {
+            sheet: self.fields_shape.sheet.clone(),
+            start: self.values_start(),
+            end: self.values_end(row),
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct FieldName {
+    index: u16,
+    name: String,
+    field: String,
+    ty: (),
 }
 
 #[derive(Clone, Debug)]
@@ -155,7 +235,7 @@ pub struct Matrix {
 
 impl Matrix {
     pub fn get(&mut self, index: MatrixIndex) -> Option<&mut String> {
-        self.get_row(index.row)
+        self.get_row(index.row.expect("index row should be given"))
             .and_then(|e| e.get_mut(index.col as usize))
     }
 
@@ -164,9 +244,30 @@ impl Matrix {
         self.data.get_mut(row as usize).map(|e| e.as_mut_slice())
     }
 
+    pub fn get_col(&mut self, col: u16) -> Option<Vec<&mut String>> {
+        if col >= self.shape.cols() {
+            return None;
+        }
+
+        let rows = self.shape.rows().expect("end row should be given");
+        for row in 0..rows {
+            self.fill_default_on_row(row);
+        }
+
+        let mut cols = vec![];
+        for row in 0..rows {
+            let index = MatrixIndex {
+                col,
+                row: Some(row),
+            };
+            cols.push(unsafe { std::mem::transmute(self.get(index).unwrap()) });
+        }
+        Some(cols)
+    }
+
     fn fill_default_on_row(&mut self, row: u32) {
         let row_index = row as usize;
-        let row_length = self.shape.rows() as usize;
+        let row_length = self.shape.rows().unwrap_or(MatrixIndex::MAX_ROW) as usize;
         let col_length = self.shape.cols() as usize;
 
         if row_index < row_length {
@@ -174,10 +275,18 @@ impl Matrix {
                 self.data.push(Default::default());
             }
             let row = self.data.get_mut(row_index).unwrap();
-            while row.len() <= col_length {
+            while row.len() < col_length {
                 row.push(Default::default());
             }
         }
+    }
+
+    pub fn rows(&mut self) -> self::iter::RowIterMut {
+        self::iter::RowIterMut::new(self)
+    }
+
+    pub fn cols(&mut self) -> self::iter::ColIterMut {
+        self::iter::ColIterMut::new(self)
     }
 
     pub fn shape(&self) -> &MatrixShape {
@@ -185,33 +294,52 @@ impl Matrix {
     }
 }
 
+impl<'a> IntoIterator for &'a mut Matrix {
+    type Item = &'a mut [String];
+
+    type IntoIter = self::iter::RowIterMut<'a>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        Self::IntoIter::new(self)
+    }
+}
+
+impl IntoIterator for Matrix {
+    type Item = Vec<String>;
+
+    type IntoIter = std::vec::IntoIter<Vec<String>>;
+
+    fn into_iter(mut self) -> Self::IntoIter {
+        let rows = self.shape.rows().unwrap_or(MatrixIndex::MAX_ROW);
+        for row in 0..rows {
+            self.fill_default_on_row(row);
+        }
+        self.data.into_iter()
+    }
+}
 pub mod iter {
     use std::cell::UnsafeCell;
 
     use super::Matrix;
 
     #[derive(Debug)]
-    pub struct MatrixIterMut<'a> {
+    pub struct RowIterMut<'a> {
         _thread_lock: UnsafeCell<()>,
         matrix: &'a mut Matrix,
         index: u32,
     }
 
-    impl<'a> IntoIterator for &'a mut Matrix {
-        type Item = &'a mut [String];
-
-        type IntoIter = MatrixIterMut<'a>;
-
-        fn into_iter(self) -> Self::IntoIter {
-            Self::IntoIter {
+    impl<'a> RowIterMut<'a> {
+        pub(super) fn new(matrix: &'a mut Matrix) -> Self {
+            Self {
                 _thread_lock: Default::default(),
-                matrix: self,
+                matrix,
                 index: 0,
             }
         }
     }
 
-    impl<'a> Iterator for MatrixIterMut<'a> {
+    impl<'a> Iterator for RowIterMut<'a> {
         type Item = &'a mut [String];
 
         fn next(&mut self) -> Option<Self::Item> {
@@ -221,16 +349,30 @@ pub mod iter {
         }
     }
 
-    impl IntoIterator for Matrix {
-        type Item = Vec<String>;
+    #[derive(Debug)]
+    pub struct ColIterMut<'a> {
+        _thread_lock: UnsafeCell<()>,
+        matrix: &'a mut Matrix,
+        index: u16,
+    }
 
-        type IntoIter = std::vec::IntoIter<Vec<String>>;
-
-        fn into_iter(mut self) -> Self::IntoIter {
-            for row in 0..self.shape.rows() {
-                self.fill_default_on_row(row);
+    impl<'a> ColIterMut<'a> {
+        pub(super) fn new(matrix: &'a mut Matrix) -> Self {
+            Self {
+                _thread_lock: Default::default(),
+                matrix,
+                index: 0,
             }
-            self.data.into_iter()
+        }
+    }
+
+    impl<'a> Iterator for ColIterMut<'a> {
+        type Item = Vec<&'a mut String>;
+
+        fn next(&mut self) -> Option<Self::Item> {
+            let index = self.index;
+            self.index += 1;
+            unsafe { std::mem::transmute(self.matrix.get_col(index)) }
         }
     }
 }
@@ -289,21 +431,28 @@ impl MatrixShape {
         self.end.col - self.start.col + 1
     }
 
-    pub fn rows(&self) -> u32 {
-        self.end.row - self.start.row + 1
+    pub fn rows(&self) -> Option<u32> {
+        match (self.start.row, self.end.row) {
+            (Some(start), Some(end)) => Some(end - start + 1),
+            (None, Some(end)) => Some(end),
+            (_, None) => None,
+        }
     }
 }
 
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct MatrixIndex {
     pub col: u16,
-    pub row: u32,
+    pub row: Option<u32>,
 }
 
 impl FromStr for MatrixIndex {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if s.is_empty() {
+            bail!("empty code in MatrixIndex is not supported");
+        }
         if !s.is_ascii() {
             bail!("non-ascii code in MatrixIndex");
         }
@@ -313,7 +462,7 @@ impl FromStr for MatrixIndex {
         for byte in &mut bytes {
             if byte.is_ascii_alphabetic() {
                 col = col * Self::NUM_ALPHABETS + (byte.to_ascii_uppercase() - b'A') as u16;
-                if col >= 17_576 {
+                if col >= Self::MAX_COL {
                     bail!("columns over 'ZZZ' (17,576) are not supported");
                 }
             } else {
@@ -322,13 +471,16 @@ impl FromStr for MatrixIndex {
                     .parse()?;
                 if row == 0 {
                     bail!("rows with zero index are not supported");
-                } else if row > 5_000_000 {
+                } else if row > Self::MAX_ROW {
                     bail!("rows over 5 million are not supported");
                 }
-                return Ok(Self { col, row: row - 1 });
+                return Ok(Self {
+                    col,
+                    row: Some(row - 1),
+                });
             }
         }
-        bail!("malformed MatrixIndex: {}", s);
+        Ok(Self { col, row: None })
     }
 }
 
@@ -340,37 +492,19 @@ impl fmt::Display for MatrixIndex {
             col /= Self::NUM_ALPHABETS;
             col > 0
         } {}
-        (self.row + 1).fmt(f)?;
+        if let Some(row) = self.row {
+            (row + 1).fmt(f)?;
+        }
         Ok(())
     }
 }
 
-impl ops::Add for MatrixIndex {
-    type Output = Self;
-
-    fn add(self, rhs: Self) -> Self::Output {
-        Self {
-            col: self.col + rhs.col,
-            row: self.row + rhs.row,
-        }
-    }
-}
-
-impl ops::Sub for MatrixIndex {
-    type Output = Self;
-
-    fn sub(self, rhs: Self) -> Self::Output {
-        Self {
-            col: self.col - rhs.col,
-            row: self.row - rhs.row,
-        }
-    }
-}
-
 impl MatrixIndex {
+    const MAX_ROW: u32 = 5_000_000;
+    const MAX_COL: u16 = 17_576;
     const NUM_ALPHABETS: u16 = (b'Z' - b'A' + 1) as u16;
 
-    pub fn new(col: u16, row: u32) -> Self {
+    pub fn new(col: u16, row: Option<u32>) -> Self {
         Self { col, row }
     }
 }

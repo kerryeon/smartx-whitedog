@@ -25,8 +25,8 @@ async fn main() -> anyhow::Result<()> {
     let client = SheetClient::try_default().await?;
 
     // 정의한 테이블 객체를 불러옵니다.
-    let spreadsheet = client.get_sheet_unchecked(spreadsheet_id);
-    let table: Table<MyField> = spreadsheet.get_table("Metadata!A1:G2").await?;
+    let spreadsheet = client.into_sheet_unchecked(spreadsheet_id);
+    let table: Table<MyField> = spreadsheet.get_table("Metadata!A1:G1").await?;
     dbg!(table.get_rows(Some(1)).await?);
 
     Ok(())
