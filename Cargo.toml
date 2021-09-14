@@ -1,2 +1,9 @@
 [workspace]
-members = ["core", "examples", "zeus/client", "zeus/core", "zeus/manager"]
+members = [
+    "core",
+    "examples",
+    "sheet/client",
+    "zeus/client",
+    "zeus/core",
+    "zeus/manager",
+]

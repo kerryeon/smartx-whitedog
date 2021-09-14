@@ -11,6 +11,5 @@ reqwest2 = ["ya-gist-common/reqwest", "ya-gist-zeus-core/reqwest2"]
 rocket2 = ["ya-gist-common/rocket", "ya-gist-zeus-core/rocket2"]
 
 [dependencies]
-# google-sheets4 = "2.0"
 ya-gist-common = { path = "../common" }
 ya-gist-zeus-core = { path = "../zeus/core" }

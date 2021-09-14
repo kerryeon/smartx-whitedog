@@ -1,5 +1,5 @@
 [package]
-name = "ya-gist-zeus-client"
+name = "ya-gist-sheet-client"
 version = "0.1.0"
 edition = "2021"
 
@@ -7,8 +7,10 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1.0"
-log = "0.4"
-reqwest = { version = "0.11", features = ["cookies", "json"] }
+google-sheets4 = "2.0"
+hyper = "0.14"
+hyper-rustls = "0.22"
 serde = "1.0"
 serde_json = "1.0"
-ya-gist-zeus-core = { path = "../core", features = ["reqwest2"] }
+ya-gist-common = { path = "../../common" }
+yup-oauth2 = "5.0"

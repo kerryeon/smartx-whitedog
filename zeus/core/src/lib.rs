@@ -1,5 +1,4 @@
 #[cfg(feature = "rocket2")]
-#[macro_use]
 extern crate rocket;
 #[macro_use]
 extern crate serde;
