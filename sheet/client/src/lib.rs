@@ -1,5 +1,3 @@
-#![feature(cell_leak)]
-
 #[macro_use]
 extern crate anyhow;
 
@@ -239,7 +237,7 @@ impl<'a, Field> Table<'a, Field> {
                 "" | "N/A" => Ok(Value::Null),
                 _ => match field.ty {
                     InstanceType::Null => Ok(Value::Null),
-                    InstanceType::Boolean => match token.to_uppercase().as_str() {
+                    InstanceType::Boolean => match token.trim().to_uppercase().as_str() {
                         "TRUE" | "YES" | "Y" | "O" | "V" => Ok(Value::Bool(true)),
                         "FALSE" | "NO" | "N" | "X" => Ok(Value::Bool(false)),
                         _ => bail!(
@@ -600,9 +598,10 @@ impl FromStr for MatrixIndex {
                     bail!("columns over 'ZZZ' (17,576) are not supported");
                 }
             } else {
-                let row: u32 = String::from_utf8([byte].into_iter().chain(bytes).collect())
-                    .unwrap()
-                    .parse()?;
+                let row: u32 =
+                    String::from_utf8(Some(byte).into_iter().chain(bytes.into_iter()).collect())
+                        .unwrap()
+                        .parse()?;
                 if row == 0 {
                     bail!("rows with zero index are not supported");
                 } else if row > Self::MAX_ROW {
