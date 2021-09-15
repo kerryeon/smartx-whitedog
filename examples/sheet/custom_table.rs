@@ -9,7 +9,7 @@ struct MyField {
     administrator: String,
     application: String,
     format: String,
-    updated_date: String,
+    updated_date: Option<String>,
     version: String,
     activated: bool,
     alert: Option<String>,

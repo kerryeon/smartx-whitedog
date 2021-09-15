@@ -141,7 +141,6 @@ impl Spreadsheet {
                                 .enumerate()
                                 .find(|(_, (field, _))| &name == field)
                                 .map(|(index, (field, ty))| FieldName {
-                                    index: index as u16,
                                     name,
                                     field: field.clone(),
                                     ty: *ty,
@@ -180,7 +179,6 @@ impl Spreadsheet {
                     spreadsheet: self,
                     fields_shape: fields_matrix.shape.clone(),
                     fields: parse_matrix(&name, fields_struct, fields_matrix)?,
-                    name,
                     _table: PhantomData::<Field>::default(),
                 })
             }
@@ -225,7 +223,6 @@ impl Spreadsheet {
 #[derive(Clone)]
 pub struct Table<'a, Field> {
     spreadsheet: &'a Spreadsheet,
-    name: String,
     fields: Vec<FieldName>,
     fields_shape: MatrixShape,
     _table: PhantomData<Field>,
@@ -238,22 +235,27 @@ impl<'a, Field> Table<'a, Field> {
         Field: DeserializeOwned,
     {
         fn parse_col(field: &FieldName, token: String) -> Result<Value> {
-            match field.ty {
-                InstanceType::Null => Ok(Value::Null),
-                InstanceType::Boolean => match token.to_uppercase().as_str() {
-                    "TRUE" | "YES" | "Y" | "O" | "V" => Ok(Value::Bool(true)),
-                    "FALSE" | "NO" | "N" | "X" => Ok(Value::Bool(false)),
-                    _ => bail!(
-                        "cannot parse the value into boolean \"{}\" ({})",
-                        token,
-                        &field.name
-                    ),
+            match token.as_str() {
+                "" | "N/A" => Ok(Value::Null),
+                _ => match field.ty {
+                    InstanceType::Null => Ok(Value::Null),
+                    InstanceType::Boolean => match token.to_uppercase().as_str() {
+                        "TRUE" | "YES" | "Y" | "O" | "V" => Ok(Value::Bool(true)),
+                        "FALSE" | "NO" | "N" | "X" => Ok(Value::Bool(false)),
+                        _ => bail!(
+                            "cannot parse the value into boolean \"{}\" ({})",
+                            token,
+                            &field.name
+                        ),
+                    },
+                    InstanceType::Integer | InstanceType::Number => {
+                        Ok(Value::Number(token.parse()?))
+                    }
+                    // TODO: to be implemented
+                    InstanceType::String => Ok(Value::String(token)),
+                    InstanceType::Array => todo!(),
+                    InstanceType::Object => unreachable!("Object type should be pruned"),
                 },
-                InstanceType::Integer | InstanceType::Number => Ok(Value::Number(token.parse()?)),
-                // TODO: to be implemented
-                InstanceType::String => Ok(Value::String(token)),
-                InstanceType::Array => todo!(),
-                InstanceType::Object => unreachable!("Object type should be pruned"),
             }
         }
 
@@ -287,7 +289,7 @@ impl<'a, Field> Table<'a, Field> {
     {
         fn parse_col(field: &FieldName, value: Value) -> Result<String> {
             match value {
-                Value::Null => Ok(String::new()),
+                Value::Null => Ok("N/A".to_string()),
                 Value::Bool(value) => Ok(if value { "Y" } else { "N" }.to_string()),
                 Value::Number(value) => Ok(value.to_string()),
                 Value::String(value) => Ok(value),
@@ -354,7 +356,6 @@ impl<'a, Field> Table<'a, Field> {
 
 #[derive(Clone, Debug)]
 pub struct FieldName {
-    index: u16,
     name: String,
     field: String,
     ty: InstanceType,
