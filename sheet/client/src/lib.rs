@@ -9,8 +9,12 @@ use anyhow::Result;
 use google_sheets4::{api::ValueRange, Sheets};
 use hyper_rustls::HttpsConnector;
 use inflector::Inflector;
-use schemars::JsonSchema;
+use schemars::{
+    schema::{InstanceType, ObjectValidation, Schema, SingleOrVec},
+    JsonSchema,
+};
 use serde::{de::DeserializeOwned, Serialize};
+use serde_json::Value;
 use yup_oauth2::ServiceAccountAuthenticator;
 
 /// Google Sheets를 제어 가능한 클라이언트입니다.
@@ -71,6 +75,95 @@ impl Spreadsheet {
     where
         Field: Serialize + DeserializeOwned + JsonSchema,
     {
+        fn parse_type(ty: InstanceType) -> Result<InstanceType> {
+            match ty {
+                InstanceType::Object => bail!("child struct is not supported"),
+                _ => Ok(ty),
+            }
+        }
+
+        fn parse_schema(name: String, schema: Schema) -> Result<(String, InstanceType)> {
+            match schema {
+                Schema::Bool(_) => {
+                    bail!("a trivial boolean JSON Schema is not supported: {}", name)
+                }
+                Schema::Object(schema) => {
+                    let ty = schema
+                        .instance_type
+                        .ok_or_else(|| anyhow!("cannot infer the type: {}", name))
+                        .and_then(|types| match types {
+                            SingleOrVec::Single(ty) => Ok(*ty),
+                            SingleOrVec::Vec(types) => {
+                                let mut types =
+                                    types.into_iter().filter(|ty| *ty != InstanceType::Null);
+                                let ty = types.next().unwrap_or(InstanceType::Null);
+                                match types.next() {
+                                    Some(_) => {
+                                        bail!(
+                                            "2 or more types in one type is not supported: {}",
+                                            name
+                                        )
+                                    }
+                                    None => Ok(ty),
+                                }
+                            }
+                        })
+                        .and_then(parse_type)?;
+                    Ok((name, ty))
+                }
+            }
+        }
+
+        fn parse_object_properties(
+            object: Box<ObjectValidation>,
+        ) -> Result<Vec<(String, InstanceType)>> {
+            object
+                .properties
+                .into_iter()
+                .map(|(name, schema)| parse_schema(name, schema))
+                .collect()
+        }
+
+        fn parse_matrix(
+            struct_name: &str,
+            fields_struct: Vec<(String, InstanceType)>,
+            mut matrix: Matrix,
+        ) -> Result<Vec<FieldName>> {
+            let fields: Vec<_> = matrix
+                .cols()
+                .filter_map(|names| {
+                    names
+                        .into_iter()
+                        .map(|name| name.to_snake_case())
+                        .filter_map(|name| {
+                            fields_struct
+                                .iter()
+                                .enumerate()
+                                .find(|(_, (field, _))| &name == field)
+                                .map(|(index, (field, ty))| FieldName {
+                                    index: index as u16,
+                                    name,
+                                    field: field.clone(),
+                                    ty: *ty,
+                                })
+                        })
+                        .next()
+                })
+                .collect();
+
+            for (field_name, _) in fields_struct {
+                if let None = fields.iter().find(|field| &field.field == &field_name) {
+                    bail!(
+                        "cannot find the field \"{}\" for \"{}\" on \"{}\"",
+                        field_name,
+                        struct_name,
+                        &matrix.shape,
+                    );
+                }
+            }
+            Ok(fields)
+        }
+
         let mut schema = schemars::schema_for!(Field).schema;
         let name = schema
             .metadata()
@@ -80,42 +173,14 @@ impl Spreadsheet {
         match schema.object {
             Some(object) => {
                 let fields_range = fields_range.to_string();
-                let fields_struct: Vec<_> = object
-                    .properties
-                    .into_iter()
-                    // TODO: implement matching types
-                    .map(|(k, schema)| (k, ()))
-                    .collect();
-                let mut fields_matrix = self.get(&fields_range).await?;
-                let fields_shape = fields_matrix.shape.clone();
-
-                let fields: Vec<_> = fields_matrix
-                    .cols()
-                    .filter_map(|names| {
-                        names
-                            .into_iter()
-                            .map(|name| name.to_snake_case())
-                            .filter_map(|name| {
-                                fields_struct
-                                    .iter()
-                                    .enumerate()
-                                    .find(|(_, (field, ty))| &name == field)
-                                    .map(|(index, (field, ty))| FieldName {
-                                        index: index as u16,
-                                        name,
-                                        field: field.clone(),
-                                        ty: ty.clone(),
-                                    })
-                            })
-                            .next()
-                    })
-                    .collect();
+                let fields_struct = parse_object_properties(object)?;
+                let fields_matrix = self.get(&fields_range).await?;
 
                 Ok(Table {
                     spreadsheet: self,
+                    fields_shape: fields_matrix.shape.clone(),
+                    fields: parse_matrix(&name, fields_struct, fields_matrix)?,
                     name,
-                    fields,
-                    fields_shape,
                     _table: PhantomData::<Field>::default(),
                 })
             }
@@ -171,9 +236,24 @@ where
     Field: Serialize + DeserializeOwned,
 {
     pub async fn get_rows(&self, length: Option<u32>) -> Result<Vec<Field>> {
-        fn parse_col(field: &FieldName, token: String) -> String {
-            // TODO: boolean (Y/N, ...)
-            token
+        fn parse_col(field: &FieldName, token: String) -> Result<Value> {
+            match field.ty {
+                InstanceType::Null => Ok(Value::Null),
+                InstanceType::Boolean => match token.to_uppercase().as_str() {
+                    "TRUE" | "YES" | "Y" | "O" | "V" => Ok(Value::Bool(true)),
+                    "FALSE" | "NO" | "N" | "X" => Ok(Value::Bool(false)),
+                    _ => bail!(
+                        "cannot parse the value into boolean \"{}\" ({})",
+                        token,
+                        &field.name
+                    ),
+                },
+                InstanceType::Integer | InstanceType::Number => Ok(Value::Number(token.parse()?)),
+                // TODO: to be implemented
+                InstanceType::String => Ok(Value::String(token)),
+                InstanceType::Array => todo!(),
+                InstanceType::Object => unreachable!("Object type should be pruned"),
+            }
         }
 
         let matrix = self
@@ -189,8 +269,8 @@ where
                     .fields
                     .iter()
                     .zip(cols)
-                    .map(|(k, v)| (&k.field, parse_col(&k, v)))
-                    .collect();
+                    .map(|(k, v)| Ok((&k.field, parse_col(&k, v)?)))
+                    .collect::<Result<_>>()?;
                 Ok(serde_json::from_value(serde_json::to_value(fields)?)?)
             })
             .collect()
@@ -224,7 +304,7 @@ pub struct FieldName {
     index: u16,
     name: String,
     field: String,
-    ty: (),
+    ty: InstanceType,
 }
 
 #[derive(Clone, Debug)]
