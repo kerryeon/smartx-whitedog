@@ -73,7 +73,7 @@ pub struct Spreadsheet {
 impl Spreadsheet {
     pub async fn get_table<Field>(&self, fields_range: impl ToString) -> Result<Table<'_, Field>>
     where
-        Field: Serialize + DeserializeOwned + JsonSchema,
+        Field: JsonSchema,
     {
         fn parse_type(ty: InstanceType) -> Result<InstanceType> {
             match ty {
@@ -231,11 +231,12 @@ pub struct Table<'a, Field> {
     _table: PhantomData<Field>,
 }
 
-impl<'a, Field> Table<'a, Field>
-where
-    Field: Serialize + DeserializeOwned,
-{
-    pub async fn get_rows(&self, length: Option<u32>) -> Result<Vec<Field>> {
+impl<'a, Field> Table<'a, Field> {
+    /// 테이블 객체를 불러옵니다.
+    pub async fn get_rows(&self, length: Option<u32>) -> Result<Vec<Field>>
+    where
+        Field: DeserializeOwned,
+    {
         fn parse_col(field: &FieldName, token: String) -> Result<Value> {
             match field.ty {
                 InstanceType::Null => Ok(Value::Null),
@@ -256,9 +257,12 @@ where
             }
         }
 
+        if length == Some(0) {
+            return Ok(vec![]);
+        }
         let matrix = self
             .spreadsheet
-            .get(&self.values_shape(length).to_string())
+            .get(&self.values_shape(0, length.map(|e| e - 1)).to_string())
             .await?;
 
         // TODO: Vector notation
@@ -276,25 +280,74 @@ where
             .collect()
     }
 
-    fn values_start(&self) -> MatrixIndex {
+    /// 테이블 객체를 반영합니다.
+    pub async fn set_rows(&self, rows: &[Field], offset: u32) -> Result<()>
+    where
+        Field: Serialize,
+    {
+        fn parse_col(field: &FieldName, value: Value) -> Result<String> {
+            match value {
+                Value::Null => Ok(String::new()),
+                Value::Bool(value) => Ok(if value { "Y" } else { "N" }.to_string()),
+                Value::Number(value) => Ok(value.to_string()),
+                Value::String(value) => Ok(value),
+                // TODO: to be implemented
+                Value::Array(values) => todo!(),
+                Value::Object(_) => unreachable!("Object type should be pruned"),
+            }
+        }
+
+        fn parse_field(fields: &[FieldName], field: Value) -> Result<Vec<String>> {
+            match field {
+                Value::Object(mut cols) => fields
+                    .iter()
+                    .map(|field| (field, cols.remove(&field.field).unwrap()))
+                    .map(|(field, value)| parse_col(field, value))
+                    .collect(),
+                _ => unreachable!("Object type should be pruned"),
+            }
+        }
+        // TODO: Vector notation
+        let data: Vec<_> = rows
+            .into_iter()
+            .map(|field| {
+                serde_json::to_value(field)
+                    .map_err(Into::into)
+                    .and_then(|field| parse_field(&self.fields, field))
+            })
+            .collect::<Result<_>>()?;
+        if data.is_empty() {
+            return Ok(());
+        }
+
+        let row_start = offset;
+        let row_end = offset + data.len() as u32 - 1;
+        let matrix = Matrix {
+            shape: self.values_shape(row_start, Some(row_end)),
+            data,
+        };
+        self.spreadsheet.update(matrix).await
+    }
+
+    fn values_start(&self, row: u32) -> MatrixIndex {
         MatrixIndex {
             col: self.fields_shape.start.col,
-            row: Some(self.fields_shape.end.row.unwrap() + 1),
+            row: Some(self.fields_shape.end.row.unwrap() + 1 + row),
         }
     }
 
     fn values_end(&self, row: Option<u32>) -> MatrixIndex {
         MatrixIndex {
             col: self.fields_shape.end.col,
-            row: row.map(|row| (self.fields_shape.end.row.unwrap() + row)),
+            row: row.map(|row| (self.fields_shape.end.row.unwrap() + 1 + row)),
         }
     }
 
-    fn values_shape(&self, row: Option<u32>) -> MatrixShape {
+    fn values_shape(&self, start: u32, end: Option<u32>) -> MatrixShape {
         MatrixShape {
             sheet: self.fields_shape.sheet.clone(),
-            start: self.values_start(),
-            end: self.values_end(row),
+            start: self.values_start(start),
+            end: self.values_end(end),
         }
     }
 }

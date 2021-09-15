@@ -4,7 +4,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use ya_gist_sheet_client::{SheetClient, Table};
 
-#[derive(Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 struct MyField {
     administrator: String,
     application: String,
@@ -27,7 +27,18 @@ async fn main() -> anyhow::Result<()> {
     // 정의한 테이블 객체를 불러옵니다.
     let spreadsheet = client.into_sheet_unchecked(spreadsheet_id);
     let table: Table<MyField> = spreadsheet.get_table("Metadata!A1:G1").await?;
-    dbg!(table.get_rows(Some(1)).await?);
+    let mut row = table
+        .get_rows(Some(1))
+        .await?
+        .pop()
+        .expect("rows should not be empty");
+    dbg!(&row);
+
+    // 객체를 수정하고 이를 반영합니다.
+    row.alert = Some("hello world".to_string());
+    table
+        .set_rows(&[row.clone(), row.clone(), row.clone()], 0)
+        .await?;
 
     Ok(())
 }
