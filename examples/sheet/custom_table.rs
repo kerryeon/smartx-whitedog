@@ -27,18 +27,19 @@ async fn main() -> anyhow::Result<()> {
     // 정의한 테이블 객체를 불러옵니다.
     let spreadsheet = client.into_sheet_unchecked(spreadsheet_id);
     let table: Table<MyField> = spreadsheet.get_table("Metadata!A1:G1").await?;
-        let mut row = table
-            .get_rows(Some(1))
-            .await?
-            .pop()
-            .expect("rows should not be empty");
-        dbg!(&row);
+    let mut row = table
+        .get_rows(Some(1))
+        .await?
+        .pop()
+        .expect("rows should not be empty");
+    dbg!(&row);
 
-        // 객체를 수정하고 이를 반영합니다.
-        row.alert = Some("hello world".to_string());
-        table
-            .set_rows(&[row.clone(), row.clone(), row.clone()], 0)
-            .await?;
+    // 객체를 수정하고 이를 반영합니다.
+    row.alert = Some("hello world".to_string());
+    table
+        .set_rows(&[row.clone(), row.clone(), row.clone()], 0)
+        .await?;
+    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
 
     Ok(())
 }

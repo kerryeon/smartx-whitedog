@@ -16,6 +16,7 @@ use serde_json::Value;
 use yup_oauth2::ServiceAccountAuthenticator;
 
 /// Google Sheets를 제어 가능한 클라이언트입니다.
+#[derive(Clone)]
 pub struct SheetClient {
     hub: Sheets,
 }
