@@ -1,5 +1,5 @@
 [package]
-name = "ya-gist-core"
+name = "smartx-whitedog-core"
 version = "0.1.0"
 edition = "2018"
 
@@ -7,9 +7,12 @@ edition = "2018"
 
 [features]
 default = []
-reqwest2 = ["ya-gist-common/reqwest", "ya-gist-zeus-core/reqwest2"]
-rocket2 = ["ya-gist-common/rocket", "ya-gist-zeus-core/rocket2"]
+reqwest2 = [
+    "smartx-whitedog-common/reqwest",
+    "smartx-whitedog-zeus-core/reqwest2",
+]
+rocket2 = ["smartx-whitedog-common/rocket", "smartx-whitedog-zeus-core/rocket2"]
 
 [dependencies]
-ya-gist-common = { path = "../common" }
-ya-gist-zeus-core = { path = "../zeus/core" }
+smartx-whitedog-common = { path = "../common" }
+smartx-whitedog-zeus-core = { path = "../zeus/core" }

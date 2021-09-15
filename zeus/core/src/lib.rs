@@ -6,5 +6,5 @@ extern crate serde;
 pub mod models;
 
 #[cfg(all(feature = "api", feature = "reqwest2"))]
-pub use ya_gist_common::api;
-pub use ya_gist_common::init;
+pub use smartx_whitedog_common::api;
+pub use smartx_whitedog_common::init;

@@ -15,7 +15,7 @@ async fn main() {
 }
 
 async fn try_main() -> anyhow::Result<()> {
-    ya_gist_zeus_core::init::init_logger();
+    smartx_whitedog_zeus_core::init::init_logger();
 
     let cors = {
         use rocket::http::Method;
@@ -36,7 +36,7 @@ async fn try_main() -> anyhow::Result<()> {
 
     self::routes::mount(
         rocket::build()
-            .manage(ya_gist_zeus_client::ZeusClient::infer().await?)
+            .manage(smartx_whitedog_zeus_client::ZeusClient::infer().await?)
             .attach(cors),
     )
     .launch()

@@ -1,5 +1,5 @@
 pub mod models;
 
 #[cfg(feature = "reqwest2")]
-pub use ya_gist_common::api;
-pub use ya_gist_common::init;
+pub use smartx_whitedog_common::api;
+pub use smartx_whitedog_common::init;

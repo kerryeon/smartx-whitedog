@@ -1,6 +1,6 @@
 /// 직접구매조회
 pub mod get {
-    use ya_gist_common::models::chrono::DateTime;
+    use smartx_whitedog_common::models::chrono::DateTime;
 
     /// 직접구매조회
     #[cfg_attr(feature = "rocket2", derive(rocket::FromForm))]
@@ -17,7 +17,10 @@ pub mod get {
 
     #[cfg(feature = "reqwest2")]
     impl Request {
-        pub async fn call(&self, client: &ya_gist_common::api::Client) -> anyhow::Result<Response> {
+        pub async fn call(
+            &self,
+            client: &smartx_whitedog_common::api::Client,
+        ) -> anyhow::Result<Response> {
             client.get(super::res::RESOURCE_URI, self).await
         }
     }
@@ -25,7 +28,7 @@ pub mod get {
 
 /// 리소스 정보
 pub mod res {
-    use ya_gist_common::models::chrono::DateTime;
+    use smartx_whitedog_common::models::chrono::DateTime;
 
     /// 리소스 경로
     pub const RESOURCE_URI: &str = "/zeus/apa/";

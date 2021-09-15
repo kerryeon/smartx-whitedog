@@ -1,5 +1,5 @@
 [package]
-name = "ya-gist-zeus-client"
+name = "smartx-whitedog-zeus-client"
 version = "0.1.0"
 edition = "2018"
 
@@ -11,4 +11,4 @@ log = "0.4"
 reqwest = { version = "0.11", features = ["cookies", "json"] }
 serde = "1.0"
 serde_json = "1.0"
-ya-gist-zeus-core = { path = "../core", features = ["reqwest2"] }
+smartx-whitedog-zeus-core = { path = "../core", features = ["reqwest2"] }

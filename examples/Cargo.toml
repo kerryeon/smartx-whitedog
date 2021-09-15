@@ -1,5 +1,5 @@
 [package]
-name = "ya-gist-examples"
+name = "smartx-whitedog-examples"
 version = "0.1.0"
 edition = "2018"
 
@@ -11,12 +11,12 @@ disable-release = true
 [dependencies]
 anyhow = "1.0"
 tokio = { version = "1.8", features = ["full"] }
-ya-gist-core = { path = "../core", features = ["reqwest2"] }
+smartx-whitedog-core = { path = "../core", features = ["reqwest2"] }
 
 [dev-dependencies]
 schemars = "0.8"
 serde = { version = "1.0", features = ["derive"] }
-ya-gist-sheet-client = { path = "../sheet/client" }
+smartx-whitedog-sheet-client = { path = "../sheet/client" }
 
 [[example]]
 name = "sheet_custom_table"

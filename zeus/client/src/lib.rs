@@ -10,7 +10,7 @@ use std::str::Split;
 use anyhow::Result;
 use reqwest::RequestBuilder;
 use serde::{de::DeserializeOwned, Serialize};
-use ya_gist_zeus_core::models::user::User;
+use smartx_whitedog_zeus_core::models::user::User;
 
 /// Zeus 시스템에 접속 가능한 클라이언트입니다.
 pub struct ZeusClient {

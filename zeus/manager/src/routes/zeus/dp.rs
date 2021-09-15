@@ -1,6 +1,6 @@
 use rocket::{serde::json::Json, State};
-use ya_gist_zeus_client::ZeusClient;
-use ya_gist_zeus_core::models::{
+use smartx_whitedog_zeus_client::ZeusClient;
+use smartx_whitedog_zeus_core::models::{
     chrono::{DateTime, DateTimeFormat},
     dp as model,
     status::{Status, ToResponse},

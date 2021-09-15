@@ -1,5 +1,5 @@
 [package]
-name = "ya-gist-zeus-manager"
+name = "smartx-whitedog-zeus-manager"
 version = "0.1.0"
 edition = "2018"
 description = "GIST Administrative Automation Program"
@@ -13,8 +13,8 @@ rocket_cors = { git = "https://github.com/lawliet89/rocket_cors", branch = "mast
 serde = "1.0"
 serde_json = "1.0"
 tokio = { version = "1.8", features = ["full"] }
-ya-gist-zeus-client = { path = "../client" }
-ya-gist-zeus-core = { path = "../core", features = [
+smartx-whitedog-zeus-client = { path = "../client" }
+smartx-whitedog-zeus-core = { path = "../core", features = [
     "api",
     "reqwest2",
     "rocket2",
