@@ -4,7 +4,6 @@ members = [
     "examples",
     "sheet/client",
     "sheet/core",
-    "sheet/managers/index",
     "zeus/client",
     "zeus/core",
     "zeus/manager",
